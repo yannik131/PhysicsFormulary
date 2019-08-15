@@ -4,6 +4,7 @@ The Units module.
 
 from MathObject import *
 
+
 class Unit(MathObject):
 
     """
@@ -18,6 +19,7 @@ class Unit(MathObject):
         """
 
         super().__init__(*args)
+
 
 class SIBaseUnits(dict):
 

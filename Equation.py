@@ -4,6 +4,7 @@ The Equation module.
 
 from Variable import *
 
+
 class Equation(MathObject):
 
     """
@@ -16,19 +17,21 @@ class Equation(MathObject):
 
         :param args: Passed to super
         """
+        super().__init__(*args)
+        self.variable_mapping = dict()
 
-        self.variableMapping = dict()
-
-    def setVariable(self, sympyForm: str, variable: Variable):
+    def set_variable(self, sympy_form: str, variable: Variable):
         """
         Tells the equation what variables it's made of.
         Note: Not every variable-name is unique. For example, "m" could both characterize a mass or the magnetic
         quantum number. This is why setting the variables is necessary.
-        :param sympyForm: Symbol of a variable in the equation.
+        :param sympy_form: Symbol of a variable in the equation.
         :param variable: Variable object to connect the variable symbol in the equation with.
         :return: Nothing.
         """
-        if not sympyForm in self.sympyForm:
-            raise AttributeError("Variable with name %s not in equation!" % name)
-        self.variableMapping[sympyForm] = variable
+        if sympy_form not in self.sympy_form:
+            raise AttributeError("Variable with name %s not in equation!" % sympy_form)
+        self.variable_mapping[sympy_form] = variable
 
+
+eq = Equation("", "", "")
