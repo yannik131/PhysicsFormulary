@@ -4,7 +4,6 @@ The Units module.
 
 from MathObject import *
 
-
 class Unit(MathObject):
 
     """
@@ -44,3 +43,19 @@ class SIBaseUnits(dict):
     def __setitem__(self, key, value):
         if self.__dict__.get("_SIBaseUnits__locked", False):
             raise AttributeError("The base units surely have not changed again!")
+
+        self.__dict__[key] = value
+
+class Dimension(MathObject):
+
+    """
+    If the quotient of two physical quantities is a real number, they share the same dimension. All sides of a physical
+    equation have to have the same dimension.
+    Dimensions are used only in reference to a chosen unit system and convey qualitative information of a physical
+    quantity. In the context of this application, units are divided in different dimensions and physical quantities are
+    divided into different quantity types. After choosing a unit system, every base quantity is assigned a dimension of
+    the same name as the base quantity. Then, every physical quantity that is not a base quantity has its dimension
+    determined by dividing its unit by the units of the base quantities and inserting the resulting exponent in the
+    dimensional analysis (i. e. in the SI base system, dim Q = L^a*M^*b*T^c*...). The unit of a base quantity is called
+    the coherent unit of its corresponding dimension.
+    """

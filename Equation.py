@@ -4,7 +4,6 @@ The Equation module.
 
 from Variable import *
 
-
 class Equation(MathObject):
 
     """
@@ -33,5 +32,25 @@ class Equation(MathObject):
             raise AttributeError("Variable with name %s not in equation!" % sympy_form)
         self.variable_mapping[sympy_form] = variable
 
+class QuantityEquation(Equation):
 
-eq = Equation("", "", "")
+
+class Definition(QuantityEquation):
+
+    def __init__(self, *args):
+        super().__init__(*args)
+
+class Relation(QuantityEquation):
+
+    def __init__(self, *args):
+        super().__init__(*args)
+
+velocity = Definition("Definition: Gemittelte Geschwindigkeit in einer bestimmten Richtung",
+                      "\ \overline{v}_{x_i} \ \coloneq \ \frac{x_{i, 2}-x{i, 1}{t_2-t_1}",
+                      "\overline{v}_x = \\frac{x_2-x_1}{t_2-t_1}")
+
+
+
+print(velocity.name)
+print(velocity.sympy_form)
+print(velocity.mathtext_form)
