@@ -1,2 +1,2 @@
-# formularyManipulator
-App to create and edit physics formularies.
+# PhysicsFormulary
+App to manage a physics formulary.
