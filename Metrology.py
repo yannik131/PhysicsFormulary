@@ -1,4 +1,3 @@
-from Math import *
 from Constant import *
 
 class PhysicalTerm:
@@ -7,44 +6,56 @@ class PhysicalTerm:
     A physical term is a word or phrase often used in the context of physics.
     """
 
-    def __init__(self, title: str, definition: str, additionalInfo: str):
-        self.title = title
-        self.definition = definition
-        self.additionalInfo = additionalInfo
+    def __init__(self):
+        self.info = dict()
+
+    def __str__(self):
+        return "Begriff"
 
 class PhysicalLaw(PhysicalTerm):
 
     """
     A physical law describes in a general fashion how physical quantities describing the states of a system correlate
     and change in regard to each other. This may be a general quantity equation, a definition, a list of
-    equations/definitions or some other mathematical term.
+    equations/definitions or some other mathematical term involving physical quantities.
     """
 
-    def __init__(self, title: str, definition: str, additionalInfo: str):
-        super().__init__(title, definition, additionalInfo)
-        self.relations = dict()
+    def __init__(self):
+        """
+        Relations is supposed to be a dictionary of lists: {"relation_name": [sympy_form, mathtext_form], ...}
+        """
+        super().__init__()
         self.picture = None
 
-    def addRelation(self, name: str, relation: Relation):
-        self.relations[name] = relation
+    def __str__(self):
+        return "Gesetz"
 
-    def setPicture(self, picture):
-        pass
 
-class Unit(MathObject):
+class Unit(PhysicalTerm):
 
     """
     A unit is represented by a term consisting of arbitrary symbols giving qualitative meaning to a quantity.
     """
 
-    def __init__(self, *args):
+    def __init__(self):
         """
         Creates a unit.
-        :param args: passed to MathObject
         """
-        super().__init__(*args)
+        super().__init__()
 
-class PhysicalQuantity(MathObject, PhysicalTerm):
+    def __str__(self):
+        return "Einheit"
+
+    def set_dimension(self, sympy_form: str, maththext_form: str):
+        """
+        Assigns a dimension to this physical quantity.
+        :param name:
+        :return:
+        """
+        pass
+
+class PhysicalQuantity(PhysicalTerm):
+
     """
     If a common property of two physical objects can be compared using a real number, it's called a physical quantity.
     Physical quantities sharing some aspects can be arbitrarily divided into quantity types. One can choose an
@@ -54,21 +65,15 @@ class PhysicalQuantity(MathObject, PhysicalTerm):
     directional property consisting of a tensor.
     """
 
-    def __init__(self, unit: Unit, numerical_value: float, *args):
+    def __init__(self):
         """
         Creates a physical quantity. Every symbol in a physical quantity equation is a physical Quantity.
         :param args:
         """
-        self.unit = unit
-        self.numerical_value = numerical_value
+        self.info = dict()
 
-    def set_dimension(self, sympy_form: str, maththext_form: str):
-        """
-        Assigns a dimension to this physical quantity.
-        :param name:
-        :return:
-        """
-        pass
+    def __str__(self):
+        return "Größe"
 
     def get_value(self):
         """
@@ -97,7 +102,7 @@ class QuantityType(dict):
     probably not considered one by most.
     """
 
-class Dimension(MathObject):
+class Dimension():
     """
     If the quotient of two physical quantities is a real number, they share the same dimension. All sides of a physical
     equation have to have the same dimension.
@@ -109,3 +114,5 @@ class Dimension(MathObject):
     dimensional analysis (i. e. in the SI base system, dim Q = L^a*M^*b*T^c*...). The unit of a base quantity is called
     the coherent unit of its corresponding dimension.
     """
+
+
