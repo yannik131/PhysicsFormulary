@@ -15,17 +15,13 @@ class Processor:
         for math_object in self.given:
             if type(math_object) is PhysicalLaw:
                 law = math_object
-        contains_everyting = False
-        for equation in law.info["Gleichungen"]:
-            contains_everything = True
-            eq = law.info["Gleichungen"][equation][0]
-            variables = re.findall("[a-zA-Z]+", eq)
-            for var in variables:
-                if var not in self.exceptions and law.info["map"][var] not in self.given and \
-                        law.info["map"][var] is not self.sought:
-                    contains_everything = False
-                    break
-            if contains_everything:
+        contains_everything = True
+        eq = law.info["Gleichung"][0]
+        variables = re.findall("[a-zA-Z]+", eq)
+        for var in variables:
+            if var not in self.exceptions and law.info["map"][var] not in self.given and \
+                    law.info["map"][var] is not self.sought:
+                contains_everything = False
                 break
         if not contains_everything:
             raise RuntimeError("Law doesn't contain the sought quantities")

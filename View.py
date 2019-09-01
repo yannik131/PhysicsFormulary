@@ -1,6 +1,7 @@
 from tkinter import *
 from Processor import *
 from Singleton import *
+import copy
 import guiSetup
 import re
 import pickle
@@ -16,6 +17,9 @@ class View(metaclass=Singleton):
         self.processor = Processor()
         self.listbox_items = list()
         self.update_solution()
+        self.standard_dict = {"Name": [1, 50], "Definition": [10, 50], "Weiteres": [3, 50]}
+        self.size_mapping = {**self.standard_dict, **{"Formelzeichen (mathtext)": [1, 50], "Formelzeichen (sympy)":
+                                                      [1, 50], "Einheit": [1, 50], "Gleichung": [2, 50]}}
 
     def save(self):
         with open("database.p", "wb") as file:
@@ -26,6 +30,7 @@ class View(metaclass=Singleton):
             math_object = self.get_selection()
         if math_object:
             self.database.remove(math_object)
+
             self.update_list()
 
     def update_formula_frame(self, math_object=None):
@@ -36,10 +41,7 @@ class View(metaclass=Singleton):
         if type(math_object) is PhysicalLaw:
             menu = self.formula_selection.children["menu"]
             menu.delete(0, END)
-            for key in math_object.info["Gleichungen"]:
-                command = lambda text: self.formula_name.set(text)
-                menu.add_command(label=key, command=lambda text=key: command(text))
-            self.formula_name.set(list(math_object.info["Gleichungen"].keys())[0])
+            self.formula_name.set(math_object.info["Gleichung"][0])
         else:
             menu = self.formula_selection.children["menu"]
             menu.delete(0, END)
@@ -50,7 +52,14 @@ class View(metaclass=Singleton):
         self.text.delete(1.0, END)
         for key in info:
             self.text.insert(END, key, "bold_italics")
-            self.text.insert(END, ": "+str(info[key])+"\n", "normal")
+            if key == "map":
+                string_copy = dict()
+                for entry in info["map"]:
+                    string_copy[entry] = info["map"][entry].info["Name"]
+                self.text.insert(END, ": " + str(string_copy) + "\n", "normal")
+            else:
+                self.text.insert(END, ": " + str(info[key]) + "\n", "normal")
+
         self.text.config(state=DISABLED)
 
     def insert_text(self, text, style, font):
@@ -59,23 +68,31 @@ class View(metaclass=Singleton):
         self.text.insert(END, text)
         self.text.config(state=DISABLED)
 
-    def add_to_database(self, instance_type: PhysicalTerm, input, title):
-        guiSetup.input_window(self.root, input, title)
-        if input["Name"].get() == "" or (instance_type in [Unit, PhysicalQuantity] and \
-                                         input["Formelzeichen (mathtext)"].get() == ""):
+    def add_to_database(self, input, category):
+        if category is Unit:
+            title="Einheit definieren"
+        elif category is PhysicalQuantity:
+            title="Größe definieren"
+        elif category is PhysicalLaw:
+            title="Gesetz definieren"
+        elif category is PhysicalTerm:
+            title="Begriff definieren"
+        input = guiSetup.input_window(self.root, input, title)
+        if input["Name"] == "" or (category in [Unit, PhysicalQuantity] and \
+                                   input["Formelzeichen (mathtext)"] == ""):
             return
-        new_object = instance_type()
+        new_object = category()
         for entry in input:
-            new_object.info[entry] = input[entry].get()
+            new_object.info[entry] = input[entry]
         for math_object in self.database:
-            if type(math_object) is instance_type:
-                if math_object.info["Name"] == input["Name"].get():
-                    raise RuntimeError("%s already in database!" % input["Name"].get())
+            if type(math_object) is category:
+                if math_object.info["Name"] == input["Name"]:
+                    raise RuntimeError("%s already in database!" % input["Name"])
 
-        if instance_type is PhysicalLaw:
-            new_object.info["Gleichungen"] = eval(new_object.info["Gleichungen"])
+        if category is PhysicalLaw:
+            new_object.info["Gleichung"] = eval(new_object.info["Gleichung"])
             self.assign_quantities(new_object)
-        elif instance_type is PhysicalQuantity:
+        elif category is PhysicalQuantity:
             self.assign_units(new_object)
         self.database.append(new_object)
         self.sort_database()
@@ -95,35 +112,41 @@ class View(metaclass=Singleton):
                 return 3
         self.database = sorted(self.database, key=func)
 
-    def add_unit(self):
-        input =  {"Name": StringVar(), "Definition": StringVar(), "Formelzeichen (mathtext)": StringVar(),
-                  "Formelzeichen (sympy)": StringVar(), "Weiteres": StringVar()}
-        self.add_to_database(Unit, input, "Einheit definieren")
+    def drag_n_drop(self, event):
+        given_listbox_x = self.given_listbox.winfo_rootx()
+        given_listbox_y = self.given_listbox.winfo_rooty()
+        given_listbox_width = self.given_listbox.winfo_width()
+        given_listbox_heigth = self.given_listbox.winfo_height()
+        mouse_x = event.x_root
+        mouse_y = event.y_root
+        if mouse_x >= given_listbox_x and mouse_x <= (given_listbox_x+given_listbox_width) and\
+            mouse_y >= given_listbox_y and mouse_y <= (given_listbox_y+given_listbox_heigth):
+            self.add_to_given()
 
-    def add_physical_quantity(self):
-        input = {"Name": StringVar(), "Formelzeichen (mathtext)": StringVar(),
-                 "Definition": StringVar(), "Einheit": StringVar(), "Weiteres": StringVar()}
-        self.add_to_database(PhysicalQuantity, input, "Physik. Größe definieren")
-
-    def add_physical_term(self):
-        input = {"Name": StringVar(), "Definition": StringVar(), "Weiteres": StringVar()}
-        self.add_to_database(PhysicalTerm, input, "Physik. Begriff definieren")
-
-    def add_physical_law(self):
-        input = {"Name": StringVar(), "Definition": StringVar(), "Weiteres": StringVar(),
-                 "Gleichungen": StringVar()}
-        self.add_to_database(PhysicalLaw, input, "Physik. Gesetz definieren")
+    def add(self, category):
+        input = copy.deepcopy(self.standard_dict)
+        if category in [PhysicalQuantity, Unit]:
+            input["Formelzeichen (mathtext)"] = [1, 50]
+        if category is Unit:
+            input["Formelzeichen (sympy)"] = [1, 50]
+        if category is PhysicalLaw:
+            input["Gleichung"] = [2, 50]
+        if category is PhysicalQuantity:
+            input["Einheit"] = [1, 50]
+        self.add_to_database(input, category)
 
     def assign_units(self, quantity: PhysicalQuantity):
         units = re.findall("[a-zA-Z]+", quantity.info["Einheit"])
+        if not units:
+            quantity.info["map"] = dict()
+            return
         input = dict()
         for sympy_var in units:
-            input[sympy_var] = StringVar()
-        guiSetup.input_window(self.root, input, "Zuordnung der Einheiten (per Name)")
-        if not "map" in quantity.info:
-            quantity.info["map"] = dict()
+            input[sympy_var] = self.size_mapping["Einheit"]
+        input = guiSetup.input_window(self.root, input, "Zuordnung der Einheiten (per Name)")
+        quantity.info["map"] = dict()
         for sympy_var in input:
-            unit = input[sympy_var].get()
+            unit = input[sympy_var]
             found = False
             for math_object in self.database:
                 if type(math_object) is Unit:
@@ -135,24 +158,24 @@ class View(metaclass=Singleton):
                 raise RuntimeError("%s: Unit \"%s\" not yet defined" % (sympy_var, unit))
 
     def assign_quantities(self, law: PhysicalLaw):
-        for equation in law.info["Gleichungen"]:
-            eq = law.info["Gleichungen"][equation][0]
-            variables = re.findall("[a-zA-Z]+", eq)
-            input = dict()
-            for sympy_var in variables:
-                if sympy_var not in self.processor.exceptions:
-                    input[sympy_var] = StringVar()
-            guiSetup.input_window(self.root, input, "Zuordnung der Größen (per Name)")
-            if not "map" in law.info:
-                law.info["map"] = dict()
-            for sympy_var in input:
-                quantity = input[sympy_var].get()
-                for math_object in self.database:
-                    if type(math_object) is PhysicalQuantity:
-                        if math_object.info["Name"] == quantity:
-                            law.info["map"][sympy_var] = math_object
-                if not sympy_var in list(law.info["map"].keys()):
-                    raise RuntimeError("%s: Quantity \"%s\" not yet defined" % (sympy_var, quantity))
+        eq = law.info["Gleichung"][0]
+        variables = re.findall("[a-zA-Z]+", eq)
+        if not variables:
+            law.info["map"] = dict()
+        input = dict()
+        for sympy_var in variables:
+            if sympy_var not in self.processor.exceptions:
+                input[sympy_var] = self.size_mapping["Einheit"]
+        input = guiSetup.input_window(self.root, input, "Zuordnung der Größen (per Name)")
+        law.info["map"] = dict()
+        for sympy_var in input:
+            quantity = input[sympy_var]
+            for math_object in self.database:
+                if type(math_object) is PhysicalQuantity:
+                    if math_object.info["Name"] == quantity:
+                        law.info["map"][sympy_var] = math_object
+            if not sympy_var in list(law.info["map"].keys()):
+                raise RuntimeError("%s: Quantity \"%s\" not yet defined" % (sympy_var, quantity))
 
     def given_select(self):
         selection = self.get_given_selection()
@@ -164,32 +187,34 @@ class View(metaclass=Singleton):
         self.update_formula_frame(selection)
         self.update_axis(selection)
 
-    def edit_object(self):
-        math_object = self.get_selection()
+    def edit_object(self, math_object=None):
+        if not math_object:
+            math_object = self.get_selection()
         input = dict()
+        string_copy = dict()
         for key in math_object.info:
-            input[key] = StringVar()
-            input[key].set(math_object.info[key])
-        guiSetup.input_window(self.root, input, "Editieren")
-        if type(math_object) is PhysicalLaw:
-            before = str(math_object.info["Gleichungen"])
-        elif type(math_object) is PhysicalQuantity:
-            before = math_object.info["Einheit"]
-        for key in math_object.info:
-            math_object.info[key] = input[key].get()
-        try:
-            if type(math_object) is PhysicalLaw:
-                math_object.info["Gleichungen"] = eval(math_object.info["Gleichungen"])
-                if before != str(math_object.info["Gleichungen"]):
+            if key == "map":
+                continue
+            input[key] = self.size_mapping[key]+[str(math_object.info[key])]
+            string_copy[key] = str(math_object.info[key])
+        input = guiSetup.input_window(self.root, input, "Editieren")
+        for key in input:
+            if input[key] != string_copy[key]:
+                #entry was changed
+                if key == "Gleichung":
+                    try:
+                        new_list = eval(input[key])
+                        if not type(new_list) is list:
+                            raise Exception()
+                    except:
+                        print("Can't interpret as list: %s" % input[key])
+                        continue
+                    math_object.info["Gleichung"] = new_list
                     self.assign_quantities(math_object)
-            elif type(math_object) is PhysicalQuantity and before != math_object.info["Einheit"]:
-                self.assign_units(math_object)
-        except:
-            if type(math_object) is PhysicalQuantity:
-                math_object.info["Einheit"] = before
-            elif type(math_object) is PhysicalLaw:
-                math_object.info["Gleichungen"] = eval(before)
-
+                else:
+                    math_object.info[key] = input[key]
+                    if key == "Einheit":
+                        self.assign_units(math_object)
         self.update_list(selection=math_object.info["Name"])
 
     def update_axis(self, math_object=None):
@@ -200,7 +225,7 @@ class View(metaclass=Singleton):
         self.formula_axis.clear()
         formula, pos, fontsize = None, None, None
         if type(math_object) is PhysicalLaw:
-            formula =  math_object.info["Gleichungen"][self.formula_name.get()][1]
+            formula =  math_object.info["Gleichung"][1]
             pos = [0.1, 0.4]
             fontsize = 20
         elif "Formelzeichen (mathtext)" in math_object.info:
@@ -216,10 +241,10 @@ class View(metaclass=Singleton):
     def listbox_popup(self, event):
         popup = Menu(self.root, tearoff=False)
         selected = self.get_selection()
-        text = str(selected)+": "+selected.info["Name"]
+        text = selected.info["Name"]
         popup.add_command(label="\"%s\" bearbeiten"%text, command=self.edit_object)
         if type(selected) in [PhysicalQuantity, PhysicalLaw]:
-            popup.add_command(label="\"%s\" zu gegeben hinzufügen"%text, command=self.add_to_given)
+            popup.add_command(label="\"%s\" ist gegeben"%text, command=self.add_to_given)
         if type(selected) is PhysicalQuantity:
             popup.add_command(label="\"%s\" ist gesucht"%text, command=self.add_to_sought)
         popup.tk_popup(event.x_root, event.y_root, 0)
@@ -255,8 +280,7 @@ class View(metaclass=Singleton):
         if len(self.processor.given) > 0:
             for item in self.processor.given:
                 if type(item) is PhysicalLaw:
-                    for law in item.info["Gleichungen"]:
-                        text += item.info["Gleichungen"][law][1] + ","
+                    text += item.info["Gleichung"][1] + ","
             for item in self.processor.given:
                 if type(item) is PhysicalQuantity:
                     text += item.info["Formelzeichen (mathtext)"] + ","
@@ -267,7 +291,7 @@ class View(metaclass=Singleton):
         self.rearrange_axis.text(0.01, 0.7, "$%s$"%text, fontsize=20)
         self.rearrange_canvas.draw()
 
-    def update_list(self, selection=None):
+    def update_list(self, selection=""):
         self.listbox.delete(0, END)
         self.listbox_items.clear()
         search_phrase = self.search_phrase.get()
@@ -297,7 +321,7 @@ class View(metaclass=Singleton):
     def update_given_listbox(self):
         self.given_listbox.delete(0, END)
         for given in self.processor.given:
-            self.given_listbox.insert(END, given.info["Name"])
+            self.given_listbox.insert(END, str(given)+": "+given.info["Name"])
 
     def get_given_selection(self):
         selection = self.given_listbox.curselection()
@@ -319,8 +343,11 @@ class View(metaclass=Singleton):
     def given_listbox_popup(self, event):
         popup = Menu(self.root, tearoff=False)
         selected = self.get_given_selection()
-        text = str(selected) + ": " + selected.info["Name"]
+        if not selected:
+            return
+        text = selected.info["Name"]
         popup.add_command(label="\"%s\" aus gesucht entfernen" % text, command=self.remove_given)
+        popup.add_command(label="\"%s\" bearbeiten" % text, command=lambda s=selected: self.edit_object(s))
         popup.tk_popup(event.x_root, event.y_root, 0)
 
     def get_selection(self):
